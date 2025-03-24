@@ -1,0 +1,36 @@
+---
+- name: Deploy Docker Container
+  hosts: localhost
+  tasks:
+    - name: Check if Docker is installed
+      shell: command -v docker
+      register: docker_installed
+      ignore_errors: yes
+
+    - name: Ensure Docker is installed
+      apt:
+        name: docker.io
+        state: present
+      when: docker_installed.rc != 0
+
+    - name: Pull Docker Image
+      command: docker pull joelthomass/scientific-calculator:latest
+
+    - name: Check if the container exists
+      shell: >
+        docker ps -a --format "{% raw %}{{.Names}}{% endraw %}" | grep -w calculator || true
+      register: container_exists
+      changed_when: false
+
+    - name: Stop existing container (if running)
+      command: docker stop calculator
+      when: container_exists.stdout != ""
+      ignore_errors: yes
+
+    - name: Remove existing container (if exists)
+      command: docker rm calculator
+      when: container_exists.stdout != ""
+      ignore_errors: yes
+
+    - name: Run Docker Container with Port 9090
+      command: docker run -d --name calculator -p 9090:8080 joelthomass/scientific-calculator:latest
